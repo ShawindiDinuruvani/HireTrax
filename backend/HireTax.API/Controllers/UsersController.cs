@@ -1,8 +1,7 @@
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.EntityFrameworkCore;
-using HireTax.API.Data;
 using HireTax.API.Models;
 using HireTax.API.DTOs;
+using HireTax.API.Repositories.Interfaces;
 using BCrypt.Net;
 
 namespace HireTax.API.Controllers
@@ -11,18 +10,22 @@ namespace HireTax.API.Controllers
     [Route("api/[controller]")]
     public class UsersController : ControllerBase
     {
-        private readonly ApplicationDbContext _context;
+        private readonly IGenericRepository<User> _userRepository;
 
-        public UsersController(ApplicationDbContext context)
+        // Repository එක හරහා Constructor එකට එනවා
+        public UsersController(IGenericRepository<User> userRepository)
         {
-            _context = context;
+            _userRepository = userRepository;
         }
 
         // --- Register Method ---
         [HttpPost("register")]
         public async Task<IActionResult> Register(UserRegistrationDto userDto)
         {
-            var userExists = await _context.Users.AnyAsync(u => u.Email == userDto.Email);
+            // Repository එකේ GetAll පාවිච්චි කරලා check කරන්න (හෝ මීට වඩා හොඳ ක්‍රමයක් පසුව හදමු)
+            var users = await _userRepository.GetAllAsync();
+            var userExists = users.Any(u => u.Email == userDto.Email);
+
             if (userExists)
             {
                 return BadRequest("මේ ඊමේල් එකෙන් දැනටමත් කෙනෙක් රෙජිස්ටර් වෙලා තියෙන්නේ!");
@@ -37,8 +40,8 @@ namespace HireTax.API.Controllers
                 RoleId = 1
             };
 
-            _context.Users.Add(user);
-            await _context.SaveChangesAsync();
+            await _userRepository.AddAsync(user);
+            await _userRepository.SaveChangesAsync();
 
             return Ok(new { message = "ලියාපදිංචිය සාර්ථකයි!" });
         }
@@ -47,15 +50,14 @@ namespace HireTax.API.Controllers
         [HttpPost("login")]
         public async Task<IActionResult> Login(LoginDto loginDto)
         {
-            // 1. Database එකෙන් User ව හොයන්න
-            var user = await _context.Users.FirstOrDefaultAsync(u => u.Email == loginDto.Email);
+            var users = await _userRepository.GetAllAsync();
+            var user = users.FirstOrDefault(u => u.Email == loginDto.Email);
 
             if (user == null)
             {
                 return Unauthorized("වැරදි ඊමේල් එකක් හෝ පාස්වර්ඩ් එකක්!");
             }
 
-            // 2. Hash කරපු Password එක Verify කරන්න
             bool isPasswordValid = BCrypt.Net.BCrypt.Verify(loginDto.Password, user.PasswordHash);
 
             if (!isPasswordValid)

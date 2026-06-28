@@ -9,13 +9,14 @@ namespace HireTax.API.Models
 
         [Required]
         [EmailAddress]
-        public string Email { get; set; }
+        public string Email { get; set; } = string.Empty;
 
         [Required]
-        public string PasswordHash { get; set; }
+        public string PasswordHash { get; set; } = string.Empty;
 
-        // Role එකට link කරන Foreign Key එක
         public int RoleId { get; set; }
-        public Role Role { get; set; }
+
+        // Navigation property එකේ nullability එක නිරාකරණය කිරීමට
+        public Role? Role { get; set; }
     }
 }

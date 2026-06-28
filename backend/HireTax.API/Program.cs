@@ -1,6 +1,11 @@
+using HireTax.API.Repositories.Interfaces;
+using HireTax.API.Repositories.Implementations;
 using Microsoft.EntityFrameworkCore; 
 using HireTax.API.Data;
 var builder = WebApplication.CreateBuilder(args);
+
+
+builder.Services.AddScoped(typeof(IGenericRepository<>), typeof(GenericRepository<>));
 
 // Add services to the container.
 
