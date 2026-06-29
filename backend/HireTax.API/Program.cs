@@ -1,14 +1,18 @@
 using HireTax.API.Repositories.Interfaces;
 using HireTax.API.Repositories.Implementations;
-using Microsoft.EntityFrameworkCore; 
+using Microsoft.EntityFrameworkCore;
 using HireTax.API.Data;
+// --- JWT Authentication Configuration (Added by Malshi) ---
+using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.IdentityModel.Tokens;
+using System.Text;
+
 var builder = WebApplication.CreateBuilder(args);
 
-
+//Core Services Setup (Repository & Controllers)
 builder.Services.AddScoped(typeof(IGenericRepository<>), typeof(GenericRepository<>));
 
 // Add services to the container.
-
 builder.Services.AddControllers();
 // Learn more about configuring Swagger/OpenAPI at https://aka.ms/aspnetcore/swashbuckle
 builder.Services.AddEndpointsApiExplorer();
@@ -23,19 +27,51 @@ if (string.IsNullOrEmpty(connectionString))
 builder.Services.AddDbContext<ApplicationDbContext>(options =>
     options.UseMySql(connectionString, ServerVersion.AutoDetect(connectionString)));
 
-var app = builder.Build();
+// 🔒 1. JWT Authentication Setup (Added by Malshi)
 
-// Configure the HTTP request pipeline.
-if (app.Environment.IsDevelopment())
+var jwtKey = builder.Configuration["Jwt:Key"] ?? "SuperSecretKeyThatIsVeryLongAndSecure12345!";
+var Key = Encoding.UTF8.GetBytes(jwtKey);
+
+builder.Services.AddAuthentication(options =>
 {
-    app.UseSwagger();
-    app.UseSwaggerUI();
-}
+    options.DefaultAuthenticateScheme = JwtBearerDefaults.AuthenticationScheme;
+    options.DefaultChallengeScheme = JwtBearerDefaults.AuthenticationScheme;
+})
+.AddJwtBearer(options =>
+{
+    options.TokenValidationParameters = new TokenValidationParameters
+    {
+        ValidateIssuer = true,
+        ValidateAudience = true,
+        ValidateLifetime = true,
+        ValidateIssuerSigningKey = true,
+        ValidIssuer = builder.Configuration["Jwt:Issuer"],
+        ValidAudience = builder.Configuration["Jwt:Audience"],
+        IssuerSigningKey = new SymmetricSecurityKey(Key)
+    };
+});
 
-app.UseHttpsRedirection();
 
-app.UseAuthorization();
+    var app = builder.Build();
+
+    // Configure the HTTP request pipeline.
+    if (app.Environment.IsDevelopment())
+    {
+        app.UseSwagger();
+        app.UseSwaggerUI();
+    }
+
+    app.UseHttpsRedirection();
+
+
+    //  2. Authentication Middleware (Added by Malshi)
+
+    app.UseAuthentication(); //WHO YOU ARE
+
+   
+
+    app.UseAuthorization(); //WHAT YOU CAN DO
 
 app.MapControllers();
 
-app.Run();
+    app.Run();
