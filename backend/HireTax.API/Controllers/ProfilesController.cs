@@ -24,7 +24,6 @@ namespace HireTax.API.Controllers
             _environment = environment;
         }
 
-        // 1. GET PROFILE: Get Profile by UserId
         [HttpGet("{userId}")]
         public async Task<IActionResult> GetProfile(int userId)
         {
@@ -39,7 +38,6 @@ namespace HireTax.API.Controllers
             return Ok(profile);
         }
 
-        // 2. UPSERT (Update/Insert): Save Profile Text Fields
         [HttpPost("manage")]
         public async Task<IActionResult> SaveProfile(UpdateProfileDto profileDto)
         {
@@ -72,7 +70,6 @@ namespace HireTax.API.Controllers
             return Ok(new { message = "Profile records successfully updated!" });
         }
 
-        // 3. RESUME UPLOAD: Save Uploaded Files Locally
         [HttpPost("upload-resume/{userId}")]
         public async Task<IActionResult> UploadResume(int userId, IFormFile file)
         {
