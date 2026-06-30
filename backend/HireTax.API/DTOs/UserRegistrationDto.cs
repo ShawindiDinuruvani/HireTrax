@@ -11,5 +11,10 @@ namespace HireTax.API.DTOs
         [Required]
         [StringLength(100, MinimumLength = 6)]
         public string Password { get; set; } = string.Empty;
+
+
+        // Role-based Access සඳහා Malshi විසින් එකතු කරන ලදී
+        [Required]
+        public int RoleId { get; set; }
     }
 }

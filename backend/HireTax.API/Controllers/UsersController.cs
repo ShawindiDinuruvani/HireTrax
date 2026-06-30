@@ -3,6 +3,10 @@ using HireTax.API.Models;
 using HireTax.API.DTOs;
 using HireTax.API.Repositories.Interfaces;
 using BCrypt.Net;
+using System.Text;
+using System.Security.Claims;
+using System.IdentityModel.Tokens.Jwt;
+using Microsoft.IdentityModel.Tokens;
 
 namespace HireTax.API.Controllers
 {
@@ -11,18 +15,19 @@ namespace HireTax.API.Controllers
     public class UsersController : ControllerBase
     {
         private readonly IGenericRepository<User> _userRepository;
+        private readonly IConfiguration _configuration;
 
-        // Repository එක හරහා Constructor එකට එනවා
-        public UsersController(IGenericRepository<User> userRepository)
+        // Constructor එක හරහා Repository සහ Configuration නිවැරදිව ලබා ගැනීම
+        public UsersController(IGenericRepository<User> userRepository, IConfiguration configuration)
         {
             _userRepository = userRepository;
+            _configuration = configuration;
         }
 
         // --- Register Method ---
         [HttpPost("register")]
         public async Task<IActionResult> Register(UserRegistrationDto userDto)
         {
-            // Repository එකේ GetAll පාවිච්චි කරලා check කරන්න (හෝ මීට වඩා හොඳ ක්‍රමයක් පසුව හදමු)
             var users = await _userRepository.GetAllAsync();
             var userExists = users.Any(u => u.Email == userDto.Email);
 
@@ -37,7 +42,8 @@ namespace HireTax.API.Controllers
             {
                 Email = userDto.Email,
                 PasswordHash = hashedPassword,
-                RoleId = 1
+                // Role-based Access සඳහා Frontend එකෙන් එන RoleId එක කෙලින්ම ලබාදෙන්න
+                RoleId = userDto.RoleId
             };
 
             await _userRepository.AddAsync(user);
@@ -65,7 +71,42 @@ namespace HireTax.API.Controllers
                 return Unauthorized("වැරදි ඊමේල් එකක් හෝ පාස්වර්ඩ් එකක්!");
             }
 
-            return Ok(new { message = "Login සාර්ථකයි!", userId = user.Id });
+            // සාර්ථකව Login වූ පසු JWT Token එක සාදා ගනී
+            var token = GenerateJwtToken(user);
+
+            // ටෝකන් එක සහ පරිශීලකයාගේ විස්තර Frontend එකට ආරක්ෂිතව ලබාදේ
+            return Ok(new
+            {
+                message = "Login සාර්ථකයි!",
+                token = token,
+                userId = user.Id,
+                roleId = user.RoleId
+            });
+        }
+
+        // --- JWT Token එක සාදන රහස් ශ්‍රිතය (Helper Method) ---
+        private string GenerateJwtToken(User user)
+        {
+            var tokenHandler = new JwtSecurityTokenHandler();
+            var key = Encoding.UTF8.GetBytes(_configuration["Jwt:Key"]!);
+
+            // Token එක ඇතුලට දමන පරිශීලක විස්තර (Claims)
+            var tokenDescriptor = new SecurityTokenDescriptor
+            {
+                Subject = new ClaimsIdentity(new[]
+                {
+                    new Claim(ClaimTypes.NameIdentifier, user.Id.ToString()),
+                    new Claim(ClaimTypes.Email, user.Email),
+                    new Claim(ClaimTypes.Role, user.RoleId.ToString()) // Role-based Access සඳහා මෙය අත්‍යවශ්‍ය වේ
+                }),
+                Expires = DateTime.UtcNow.AddHours(2), // පැය 2කින් Token එක කල් ඉකුත් වේ
+                Issuer = _configuration["Jwt:Issuer"],
+                Audience = _configuration["Jwt:Audience"],
+                SigningCredentials = new SigningCredentials(new SymmetricSecurityKey(key), SecurityAlgorithms.HmacSha256Signature)
+            };
+
+            var token = tokenHandler.CreateToken(tokenDescriptor);
+            return tokenHandler.WriteToken(token);
         }
     }
 }
