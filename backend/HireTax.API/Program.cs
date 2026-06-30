@@ -1,6 +1,11 @@
 using HireTax.API.Data;
 using HireTax.API.Repositories.Interfaces;
 using HireTax.API.Repositories.Implementations;
+using HireTax.API.Services.Notifications;
+using HireTax.API.Services.Interfaces;
+using HireTax.API.Services.Email;
+using HireTax.API.Services.Google;
+using HireTax.API.Services.Twilio;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.IdentityModel.Tokens;
@@ -14,6 +19,14 @@ var builder = WebApplication.CreateBuilder(args);
 
 // Repository
 builder.Services.AddScoped(typeof(IGenericRepository<>), typeof(GenericRepository<>));
+
+// ⭐ Notification Service
+builder.Services.AddScoped<NotificationService>();
+
+// ⭐ Individual Services (IMPORTANT)
+builder.Services.AddScoped<ISmsService, TwilioSmsService>();
+builder.Services.AddScoped<IEmailService, SendGridEmailService>();
+builder.Services.AddScoped<ICalendarService, GoogleCalendarService>();
 
 // Controllers
 builder.Services.AddControllers();
@@ -76,8 +89,8 @@ if (app.Environment.IsDevelopment())
 
 app.UseHttpsRedirection();
 
-app.UseAuthentication(); // WHO YOU ARE
-app.UseAuthorization();  // WHAT YOU CAN DO
+app.UseAuthentication();
+app.UseAuthorization();
 
 app.MapControllers();
 

@@ -1,3 +1,4 @@
+using System;
 using System.Threading.Tasks;
 using Microsoft.Extensions.Configuration;
 using SendGrid;
@@ -19,19 +20,19 @@ namespace HireTax.API.Services.Email
         {
             var apiKey = _config["SendGrid:ApiKey"];
 
-            if (string.IsNullOrEmpty(apiKey))
+            if (string.IsNullOrWhiteSpace(apiKey))
             {
                 throw new Exception("SendGrid API Key is missing in configuration.");
             }
 
-            var client = new SendGridClient(apiKey);
-
             var fromEmail = _config["SendGrid:FromEmail"];
 
-            if (string.IsNullOrEmpty(fromEmail))
+            if (string.IsNullOrWhiteSpace(fromEmail))
             {
                 throw new Exception("SendGrid FromEmail is missing in configuration.");
             }
+
+            var client = new SendGridClient(apiKey);
 
             var from = new EmailAddress(fromEmail, "HireTax");
             var toEmail = new EmailAddress(to);
@@ -46,7 +47,7 @@ namespace HireTax.API.Services.Email
 
             var response = await client.SendEmailAsync(msg);
 
-            if (!response.IsSuccessStatusCode)
+            if (response == null || !response.IsSuccessStatusCode)
             {
                 throw new Exception("SendGrid email sending failed.");
             }

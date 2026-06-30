@@ -1,4 +1,9 @@
-public interface ISmsService
+using System.Threading.Tasks;
+
+namespace HireTax.API.Services.Interfaces
 {
-    Task SendSmsAsync(string to, string message);
+    public interface ISmsService
+    {
+        Task SendSmsAsync(string to, string message);
+    }
 }
