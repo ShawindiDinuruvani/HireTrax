@@ -1,0 +1,6 @@
+@HireTax.API_HostAddress = http://localhost:5027
+
+GET {{HireTax.API_HostAddress}}/weatherforecast/
+Accept: application/json
+
+###

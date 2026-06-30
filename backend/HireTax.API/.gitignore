@@ -1,0 +1,37 @@
+# ========================
+# .NET Secrets / Config
+# ========================
+
+# ONLY ignore environment secrets
+appsettings.Development.json
+appsettings.Production.json
+
+# keep base config safe
+!appsettings.json
+
+# ========================
+# Visual Studio
+# ========================
+.vs/
+
+# ========================
+# Build folders
+# ========================
+bin/
+obj/
+
+# ========================
+# Node modules
+# ========================
+node_modules/
+
+# ========================
+# Logs
+# ========================
+*.log
+
+# ========================
+# OS files
+# ========================
+.DS_Store
+Thumbs.db
