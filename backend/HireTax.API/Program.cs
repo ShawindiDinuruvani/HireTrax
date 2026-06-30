@@ -2,6 +2,7 @@ using HireTax.API.Repositories.Interfaces;
 using HireTax.API.Repositories.Implementations;
 using Microsoft.EntityFrameworkCore;
 using HireTax.API.Data;
+<<<<<<< HEAD
 // --- JWT Authentication Configuration (Added by Malshi) ---
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.IdentityModel.Tokens;
@@ -13,26 +14,36 @@ var builder = WebApplication.CreateBuilder(args);
 builder.Services.AddScoped(typeof(IGenericRepository<>), typeof(GenericRepository<>));
 
 // Add services to the container.
+=======
+
+var builder = WebApplication.CreateBuilder(args);
+
+builder.Services.AddScoped(typeof(IGenericRepository<>), typeof(GenericRepository<>));
+
+>>>>>>> main
 builder.Services.AddControllers();
-// Learn more about configuring Swagger/OpenAPI at https://aka.ms/aspnetcore/swashbuckle
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
 
-// MySQL Connection එක Setup කිරීම
 var connectionString = builder.Configuration.GetConnectionString("DefaultConnection");
 if (string.IsNullOrEmpty(connectionString))
 {
     throw new InvalidOperationException("Connection string 'DefaultConnection' not found.");
 }
+
 builder.Services.AddDbContext<ApplicationDbContext>(options =>
     options.UseMySql(connectionString, ServerVersion.AutoDetect(connectionString)));
 
 // 🔒 1. JWT Authentication Setup (Added by Malshi)
 
+<<<<<<< HEAD
 var jwtKey = builder.Configuration["Jwt:Key"] ?? "SuperSecretKeyThatIsVeryLongAndSecure12345!";
 var Key = Encoding.UTF8.GetBytes(jwtKey);
 
 builder.Services.AddAuthentication(options =>
+=======
+if (app.Environment.IsDevelopment())
+>>>>>>> main
 {
     options.DefaultAuthenticateScheme = JwtBearerDefaults.AuthenticationScheme;
     options.DefaultChallengeScheme = JwtBearerDefaults.AuthenticationScheme;
@@ -51,6 +62,7 @@ builder.Services.AddAuthentication(options =>
     };
 });
 
+<<<<<<< HEAD
 
     var app = builder.Build();
 
@@ -75,3 +87,10 @@ builder.Services.AddAuthentication(options =>
 app.MapControllers();
 
     app.Run();
+=======
+app.UseHttpsRedirection();
+app.UseAuthorization();
+app.MapControllers();
+
+app.Run();
+>>>>>>> main
