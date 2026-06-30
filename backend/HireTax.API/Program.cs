@@ -2,6 +2,7 @@ using HireTax.API.Repositories.Interfaces;
 using HireTax.API.Repositories.Implementations;
 using Microsoft.EntityFrameworkCore; 
 using HireTax.API.Data;
+using System;
 var builder = WebApplication.CreateBuilder(args);
 
 
@@ -20,8 +21,9 @@ if (string.IsNullOrEmpty(connectionString))
 {
     throw new InvalidOperationException("Connection string 'DefaultConnection' not found.");
 }
+var serverVersion = new MySqlServerVersion(new Version(8, 0, 33)); // set to your MySQL server version
 builder.Services.AddDbContext<ApplicationDbContext>(options =>
-    options.UseMySql(connectionString, ServerVersion.AutoDetect(connectionString)));
+    options.UseMySql(connectionString, serverVersion));
 
 var app = builder.Build();
 
