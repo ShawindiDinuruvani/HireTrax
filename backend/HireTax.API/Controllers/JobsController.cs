@@ -79,7 +79,7 @@ namespace HireTax.API.Controllers
 
             await _jobRepository.SaveChangesAsync();
 
-            return Ok(new { message = "Job posting updated successfully!" });
+            return Ok(new { message = "Job posting updated successfully !" });
         }
     }
 }
