@@ -47,5 +47,16 @@ namespace HireTax.API.Controllers
     }
 
     public class EmailRequest
-    
+    {
+        public string To { get; set; }
+        public string Subject { get; set; }
+        public string Message { get; set; }
+    }
+
+    public class CalendarRequest
+    {
+        public string Title { get; set; }
+        public DateTime Start { get; set; }
+        public DateTime End { get; set; }
+    }
 }
