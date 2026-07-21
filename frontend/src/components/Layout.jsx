@@ -4,7 +4,7 @@ import { useApp } from '../context/AppContext';
 import {
   Briefcase, User, FileText, Calendar,
   Layers, Settings, Database, CheckSquare,
-  RefreshCw, Menu, X, Sparkles, LogOut, ChevronDown
+  RefreshCw, Menu, X, Sparkles, LogOut, ChevronDown,Target
 } from 'lucide-react';
 
 /* ── Demo user info per role ───────────────────────────────── */
@@ -58,21 +58,25 @@ export default function Layout({ children }) {
         return [
           { label: 'Job Finder',         path: '/',                        icon: Briefcase   },
           { label: 'My Applications',    path: '/candidate/applications',  icon: FileText    },
+          { label: 'Skill Gap Analysis', path: '/skill-gap',               icon: Target      },
           { label: 'Profile & Resume',   path: '/candidate/profile',       icon: User        },
         ];
       case 'recruiter':
         return [
           { label: 'Talent Dashboard',   path: '/',                        icon: Layers      },
           { label: 'Post a Job',         path: '/recruiter/post-job',      icon: Briefcase   },
+          { label: 'Skill Gap Analysis', path: '/skill-gap',               icon: Target      },
           { label: 'Schedule Interviews',path: '/recruiter/interviews',    icon: Calendar    },
         ];
       case 'hiring_manager':
         return [
           { label: 'Assessment Console', path: '/',                        icon: CheckSquare },
+          { label: 'Skill Gap Analysis', path: '/skill-gap',               icon: Target      },
         ];
       case 'admin':
         return [
           { label: 'Admin Terminal',     path: '/',                        icon: Settings    },
+          { label: 'Skill Gap Analysis', path: '/skill-gap',               icon: Target      },
         ];
       default:
         return [];
