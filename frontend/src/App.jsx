@@ -12,6 +12,7 @@ import HiringManagerDashboard from './pages/HiringManagerDashboard';
 import AdminPortal from './pages/AdminPortal';
 import IntegrationDemo from './pages/IntegrationDemo';
 import './App.css';
+import SkillGapAnalysis from './pages/SkillGapAnalysis';
 
 /* ── Ambient decorative glow blobs ─────────────────────────── */
 function BackgroundDecor() {
@@ -34,6 +35,7 @@ function RoleRouter() {
         <Route path="/" element={<CandidatePortal />} />
         <Route path="/candidate/applications" element={<CandidatePortal />} />
         <Route path="/candidate/profile" element={<CandidatePortal />} />
+        <Route path="/skill-gap" element={<SkillGapAnalysis />} />
         <Route path="/integration-demo" element={<IntegrationDemo />} />
         <Route path="*" element={<CandidatePortal />} />
       </Routes>
@@ -46,6 +48,7 @@ function RoleRouter() {
         <Route path="/" element={<RecruiterPortal />} />
         <Route path="/recruiter/post-job" element={<PostJob />} />
         <Route path="/recruiter/interviews" element={<ScheduleInterview />} />
+        <Route path="/skill-gap" element={<SkillGapAnalysis />} />
         <Route path="/integration-demo" element={<IntegrationDemo />} />
         <Route path="*" element={<RecruiterPortal />} />
       </Routes>
