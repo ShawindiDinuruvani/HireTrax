@@ -1,4 +1,4 @@
-﻿using System.ComponentModel.DataAnnotations;
+using System.ComponentModel.DataAnnotations;
 
 namespace HireTax.API.Models
 {
@@ -16,7 +16,12 @@ namespace HireTax.API.Models
 
         public int RoleId { get; set; }
 
-        // Navigation property එකේ nullability එක නිරාකරණය කිරීමට
+        // Optional: Recruiters & HiringManagers belong to a Company
+        // Candidates leave this null
+        public int? CompanyId { get; set; }
+
+        // Navigation properties
         public Role? Role { get; set; }
+        public Company? Company { get; set; }
     }
 }

@@ -1,4 +1,5 @@
 ﻿using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Authorization;
 using HireTax.API.Models;
 using HireTax.API.DTOs;
 using HireTax.API.Repositories.Interfaces;
@@ -8,11 +9,13 @@ using System.IO;
 using System.Linq;
 using System.Threading.Tasks;
 using System;
+using System.Security.Claims;
 
 namespace HireTax.API.Controllers
 {
     [ApiController]
     [Route("api/[controller]")]
+    [Authorize] // every action in this controller requires a valid token
     public class ProfilesController : ControllerBase
     {
         private readonly IGenericRepository<CandidateProfile> _profileRepository;
@@ -24,9 +27,24 @@ namespace HireTax.API.Controllers
             _environment = environment;
         }
 
+        // Helper: does the logged-in user own this profile, or are they staff?
+        private bool CanAccess(int targetUserId)
+        {
+            var currentUserId = int.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
+            var role = User.FindFirstValue(ClaimTypes.Role);
+
+            bool isOwner = currentUserId == targetUserId;
+            bool isStaff = role == "recruiter" || role == "hiring_manager" || role == "admin";
+
+            return isOwner || isStaff;
+        }
+
         [HttpGet("{userId}")]
         public async Task<IActionResult> GetProfile(int userId)
         {
+            if (!CanAccess(userId))
+                return Forbid();
+
             var profiles = await _profileRepository.GetAllAsync();
             var profile = profiles.FirstOrDefault(p => p.UserId == userId);
 
@@ -41,6 +59,15 @@ namespace HireTax.API.Controllers
         [HttpPost("manage")]
         public async Task<IActionResult> SaveProfile(UpdateProfileDto profileDto)
         {
+            // Only the candidate themselves (or an admin) can edit — not even
+            // recruiters/hiring managers should be able to overwrite a
+            // candidate's own profile data.
+            var currentUserId = int.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
+            var role = User.FindFirstValue(ClaimTypes.Role);
+
+            if (currentUserId != profileDto.UserId && role != "admin")
+                return Forbid();
+
             var profiles = await _profileRepository.GetAllAsync();
             var existingProfile = profiles.FirstOrDefault(p => p.UserId == profileDto.UserId);
 
@@ -73,6 +100,12 @@ namespace HireTax.API.Controllers
         [HttpPost("upload-resume/{userId}")]
         public async Task<IActionResult> UploadResume(int userId, IFormFile file)
         {
+            var currentUserId = int.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
+            var role = User.FindFirstValue(ClaimTypes.Role);
+
+            if (currentUserId != userId && role != "admin")
+                return Forbid();
+
             if (file == null || file.Length == 0)
             {
                 return BadRequest(new { message = "Invalid document submission. No file data detected." });

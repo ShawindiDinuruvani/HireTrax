@@ -1,4 +1,4 @@
-﻿using System.ComponentModel.DataAnnotations;
+using System.ComponentModel.DataAnnotations;
 
 namespace HireTax.API.DTOs
 {
@@ -16,7 +16,17 @@ namespace HireTax.API.DTOs
         [Required]
         public string Location { get; set; } = string.Empty;
 
-        [Range(0, double.MaxValue, ErrorMessage = "Salary must be a positive number.")]
-        public decimal Salary { get; set; }
+        public string Department { get; set; } = string.Empty;
+
+        public string JobType { get; set; } = string.Empty;
+
+        public string SalaryRange { get; set; } = string.Empty;
+
+        public string Requirements { get; set; } = string.Empty;
+
+        public string AiPreferredSkills { get; set; } = string.Empty;
+
+        [Required]
+        public int PostedByUserId { get; set; }
     }
 }

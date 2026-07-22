@@ -3,6 +3,7 @@ using System;
 using HireTax.API.Data;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 
 #nullable disable
@@ -10,9 +11,11 @@ using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 namespace HireTax.API.Migrations
 {
     [DbContext(typeof(ApplicationDbContext))]
-    partial class ApplicationDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260722113841_AddAuditLog")]
+    partial class AddAuditLog
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -152,32 +155,6 @@ namespace HireTax.API.Migrations
                     b.HasKey("Id");
 
                     b.ToTable("CandidateProfiles");
-                });
-
-            modelBuilder.Entity("HireTax.API.Models.Company", b =>
-                {
-                    b.Property<int>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("int");
-
-                    b.Property<string>("ContactEmail")
-                        .IsRequired()
-                        .HasColumnType("longtext");
-
-                    b.Property<DateTime>("CreatedAt")
-                        .HasColumnType("datetime(6)");
-
-                    b.Property<string>("Industry")
-                        .IsRequired()
-                        .HasColumnType("longtext");
-
-                    b.Property<string>("Name")
-                        .IsRequired()
-                        .HasColumnType("longtext");
-
-                    b.HasKey("Id");
-
-                    b.ToTable("Companies");
                 });
 
             modelBuilder.Entity("HireTax.API.Models.Evaluation", b =>
@@ -349,11 +326,6 @@ namespace HireTax.API.Migrations
                         {
                             Id = 4,
                             Name = "admin"
-                        },
-                        new
-                        {
-                            Id = 5,
-                            Name = "company_admin"
                         });
                 });
 
@@ -361,9 +333,6 @@ namespace HireTax.API.Migrations
                 {
                     b.Property<int>("Id")
                         .ValueGeneratedOnAdd()
-                        .HasColumnType("int");
-
-                    b.Property<int?>("CompanyId")
                         .HasColumnType("int");
 
                     b.Property<string>("Email")
@@ -379,8 +348,6 @@ namespace HireTax.API.Migrations
 
                     b.HasKey("Id");
 
-                    b.HasIndex("CompanyId");
-
                     b.HasIndex("RoleId");
 
                     b.ToTable("Users");
@@ -389,8 +356,8 @@ namespace HireTax.API.Migrations
                         new
                         {
                             Id = 1,
-                            Email = "admin@gmail.com",
-                            PasswordHash = "$2a$11$i/comMbNp61CtUqwcg7wluilhQUihggr44zT1cjb.3lUso1/Br1wu",
+                            Email = "admin@hiretrax.io",
+                            PasswordHash = "$2b$11$lxlyB6c.32/vNL/Yv6U0Eu1QoYlwmHwJIn1WAoQ66MY1g7kSSpQPW",
                             RoleId = 4
                         });
                 });
@@ -438,25 +405,13 @@ namespace HireTax.API.Migrations
 
             modelBuilder.Entity("HireTax.API.Models.User", b =>
                 {
-                    b.HasOne("HireTax.API.Models.Company", "Company")
-                        .WithMany("Users")
-                        .HasForeignKey("CompanyId")
-                        .OnDelete(DeleteBehavior.SetNull);
-
                     b.HasOne("HireTax.API.Models.Role", "Role")
                         .WithMany()
                         .HasForeignKey("RoleId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 
-                    b.Navigation("Company");
-
                     b.Navigation("Role");
-                });
-
-            modelBuilder.Entity("HireTax.API.Models.Company", b =>
-                {
-                    b.Navigation("Users");
                 });
 #pragma warning restore 612, 618
         }

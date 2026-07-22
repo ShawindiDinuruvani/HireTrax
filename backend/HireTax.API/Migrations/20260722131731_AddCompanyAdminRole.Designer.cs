@@ -3,6 +3,7 @@ using System;
 using HireTax.API.Data;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 
 #nullable disable
@@ -10,9 +11,11 @@ using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 namespace HireTax.API.Migrations
 {
     [DbContext(typeof(ApplicationDbContext))]
-    partial class ApplicationDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260722131731_AddCompanyAdminRole")]
+    partial class AddCompanyAdminRole
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -389,8 +392,8 @@ namespace HireTax.API.Migrations
                         new
                         {
                             Id = 1,
-                            Email = "admin@gmail.com",
-                            PasswordHash = "$2a$11$i/comMbNp61CtUqwcg7wluilhQUihggr44zT1cjb.3lUso1/Br1wu",
+                            Email = "admin@hiretrax.io",
+                            PasswordHash = "$2b$11$lxlyB6c.32/vNL/Yv6U0Eu1QoYlwmHwJIn1WAoQ66MY1g7kSSpQPW",
                             RoleId = 4
                         });
                 });
