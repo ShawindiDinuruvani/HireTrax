@@ -1,23 +1,27 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useApp } from '../context/AppContext';
+import { useNavigate, useSearchParams } from 'react-router-dom';
+import { api } from '../services/api';
 import {
   Sparkles, Mail, Lock, Eye, EyeOff, User,
   ArrowRight, UserPlus, LogIn, CheckCircle,
-  Briefcase, CheckSquare, Settings, ChevronDown
+  Briefcase, CheckSquare, Settings, ChevronDown, Building2, Plus, ArrowLeft
 } from 'lucide-react';
 
 const ROLES = [
   { value: 'candidate',      label: 'Job Seeker',      icon: User,        color: 'hsl(190 95% 50%)', desc: 'Browse & apply to jobs' },
-  { value: 'recruiter',      label: 'Recruiter',       icon: Briefcase,   color: 'hsl(263 85% 64%)', desc: 'Post jobs & screen candidates' },
-  { value: 'hiring_manager', label: 'Hiring Manager',  icon: CheckSquare, color: 'hsl(45 93% 47%)',  desc: 'Evaluate & decide on candidates' },
-  { value: 'admin',          label: 'Administrator',   icon: Settings,    color: 'hsl(142 76% 45%)', desc: 'Manage users & system settings' },
+  { value: 'company_admin',  label: 'Company',         icon: Building2,   color: 'hsl(263 85% 64%)', desc: 'Register your company' },
 ];
 
 export default function LoginPage() {
   const { registerUser, loginUser } = useApp();
+  const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
 
   // Toggle between 'login' and 'register'
-  const [mode, setMode] = useState('login');
+  // If ?role= is in URL, start in register mode with that role pre-selected
+  const urlRole = searchParams.get('role');
+  const [mode, setMode] = useState(urlRole ? 'register' : 'login');
 
   // Shared fields
   const [email,    setEmail]    = useState('');
@@ -28,13 +32,29 @@ export default function LoginPage() {
   const [fullName,        setFullName]        = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [showConfirm,     setShowConfirm]     = useState(false);
-  const [selectedRole,    setSelectedRole]    = useState('candidate');
+  const [selectedRole,    setSelectedRole]    = useState(urlRole || 'candidate');
   const [roleOpen,        setRoleOpen]        = useState(false);
   const [registered,      setRegistered]      = useState(false);
 
   // Feedback
   const [error,   setError]   = useState('');
   const [loading, setLoading] = useState(false);
+
+  // Company state (for recruiter & hiring_manager)
+  const [companies,      setCompanies]      = useState([]);
+  const [selectedCompanyId, setSelectedCompanyId] = useState('');
+  const [showNewCompany, setShowNewCompany] = useState(false);
+  const [newCompanyName, setNewCompanyName] = useState('');
+  const [newCompanyIndustry, setNewCompanyIndustry] = useState('');
+  const [newCompanyEmail,  setNewCompanyEmail]  = useState('');
+  const [companyLoading,  setCompanyLoading]  = useState(false);
+
+  // Load companies when switching to register mode
+  useEffect(() => {
+    if (mode === 'register') {
+      api.getCompanies().then(setCompanies).catch(() => setCompanies([]));
+    }
+  }, [mode]);
 
   const switchMode = (m) => {
     setMode(m);
@@ -44,27 +64,28 @@ export default function LoginPage() {
     setFullName('');
     setConfirmPassword('');
     setRegistered(false);
+    setSelectedCompanyId('');
+    setShowNewCompany(false);
+    setNewCompanyName('');
   };
 
   /* ── Login submit ── */
-  const handleLogin = (e) => {
+  const handleLogin = async (e) => {
     e.preventDefault();
     setError('');
     if (!email || !password) { setError('Please fill in all fields.'); return; }
 
     setLoading(true);
-    setTimeout(() => {
-      const result = loginUser({ email: email.trim(), password });
-      if (!result.success) {
-        setError(result.message);
-        setLoading(false);
-      }
-      // On success, AppContext sets isAuthenticated — App re-renders automatically
-    }, 800);
+    const result = await loginUser({ email: email.trim(), password });
+    if (!result.success) {
+      setError(result.message);
+      setLoading(false);
+    }
+    // On success, AppContext sets isAuthenticated — App re-renders automatically
   };
 
   /* ── Register submit ── */
-  const handleRegister = (e) => {
+  const handleRegister = async (e) => {
     e.preventDefault();
     setError('');
 
@@ -73,23 +94,29 @@ export default function LoginPage() {
     if (password.length < 6)    { setError('Password must be at least 6 characters.'); return; }
     if (password !== confirmPassword) { setError('Passwords do not match.'); return; }
 
-    setLoading(true);
-    setTimeout(() => {
-      const result = registerUser({
-        fullName: fullName.trim(),
-        email: email.trim(),
-        password,
-        role: selectedRole,
-      });
+    if (selectedRole === 'company_admin') {
+      if (!newCompanyName.trim()) { setError('Please enter a company name.'); return; }
+      if (!newCompanyIndustry.trim()) { setError('Please enter your industry.'); return; }
+    }
 
-      if (!result.success) {
-        setError(result.message);
-        setLoading(false);
-      } else {
-        setRegistered(true);
-        setLoading(false);
-      }
-    }, 900);
+    setLoading(true);
+    const result = await registerUser({
+      fullName: fullName.trim(),
+      email: email.trim(),
+      password,
+      role: selectedRole,
+      companyId: null, // company_admin creates a new company, so we don't send ID
+      companyName: newCompanyName.trim(),
+      companyIndustry: newCompanyIndustry.trim()
+    });
+
+    if (!result.success) {
+      setError(result.message);
+      setLoading(false);
+    } else {
+      setRegistered(true);
+      setLoading(false);
+    }
   };
 
   const activeRole = ROLES.find(r => r.value === selectedRole);
@@ -99,6 +126,13 @@ export default function LoginPage() {
 
       {/* ── Left branding panel ── */}
       <div style={leftPanelStyle}>
+        {/* Back to homepage button */}
+        <button
+          onClick={() => navigate('/')}
+          style={{ background: 'transparent', border: 'none', color: 'hsl(215 20% 55%)', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.82rem', padding: '0 0 20px 0', fontWeight: '500' }}
+        >
+          <ArrowLeft size={14} /> Back to Home
+        </button>
         <div style={logoRowStyle}>
           <div style={logoIconStyle}>
             <Sparkles size={22} color="hsl(190 95% 50%)" />
@@ -366,10 +400,39 @@ export default function LoginPage() {
                   </div>
                 </div>
 
+                {/* Company details — only for company_admin */}
+                {selectedRole === 'company_admin' && (
+                  <div className="form-group">
+                    <label className="form-label" style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                      <Building2 size={14} /> Company Details
+                    </label>
+
+                    <div style={{ background: 'hsl(220 30% 10%)', border: '1px solid hsl(263 85% 64% / 0.4)', borderRadius: '10px', padding: '14px', display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                      <input
+                        className="form-input"
+                        placeholder="Company Name *"
+                        value={newCompanyName}
+                        onChange={e => setNewCompanyName(e.target.value)}
+                        style={{ padding: '8px 12px', fontSize: '0.85rem' }}
+                      />
+                      <input
+                        className="form-input"
+                        placeholder="Industry (e.g. Technology, Finance) *"
+                        value={newCompanyIndustry}
+                        onChange={e => setNewCompanyIndustry(e.target.value)}
+                        style={{ padding: '8px 12px', fontSize: '0.85rem' }}
+                      />
+                      <p style={{ color: 'hsl(215 20% 55%)', fontSize: '0.75rem', margin: 0, marginTop: '-4px' }}>
+                        Your admin email above will be used as the company contact email.
+                      </p>
+                    </div>
+                  </div>
+                )}
+
                 {error && <div style={errorBoxStyle}>{error}</div>}
 
-                <button type="submit" style={primaryBtnStyle} disabled={loading}>
-                  {loading
+                <button type="submit" style={primaryBtnStyle} disabled={loading || companyLoading}>
+                  {(loading || companyLoading)
                     ? <><span style={spinnerStyle} /> Creating account...</>
                     : <><UserPlus size={15} /> Create Account</>
                   }

@@ -1,16 +1,14 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useApp } from '../context/AppContext';
+import { api } from '../services/api';
 import { 
   Users, Briefcase, Calendar, Sparkles, Filter, ArrowUpRight, 
-  BrainCircuit, Search, Check, X, FileText, ChevronRight
+  BrainCircuit, Search, Check, X, FileText, ChevronRight, Loader
 } from 'lucide-react';
 
 export default function RecruiterPortal() {
-  const { 
-    applications, candidates, jobs, schedules, 
-    updateApplicationStatus 
-  } = useApp();
+  const { currentUser } = useApp();
   
   const navigate = useNavigate();
 
@@ -23,29 +21,68 @@ export default function RecruiterPortal() {
   const [selectedApp, setSelectedApp] = useState(null);
   const [actionNotes, setActionNotes] = useState('');
 
+  // ── Real API State ──
+  const [jobs, setJobs] = useState([]);
+  const [applications, setApplications] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
+
+  React.useEffect(() => {
+    loadData();
+  }, []);
+
+  const loadData = async () => {
+    setLoading(true);
+    try {
+      const [jobsData, appsData] = await Promise.all([
+        api.getJobs(),
+        api.getAllApplications().catch(() => [])
+      ]);
+      setJobs(jobsData);
+      setApplications(appsData);
+    } catch (err) {
+      setError('Failed to load data from server.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
   // KPI Calculations
   const activeJobsCount = jobs.filter(j => j.status === 'Active').length;
   const totalApplicants = applications.length;
   const pendingScreenings = applications.filter(a => a.status === 'Screening').length;
-  const scheduledInterviews = schedules.filter(s => s.status === 'Scheduled').length;
+  // TODO: Add real interviews
+  const scheduledInterviews = 0; 
 
-  const handleStatusChange = (appId, newStatus) => {
-    updateApplicationStatus(appId, newStatus, actionNotes || `Status updated by recruiter.`);
-    setActionNotes('');
-    setSelectedApp(null); // Close drawer
+  const handleStatusChange = async (appId, newStatus) => {
+    try {
+      await api.updateApplicationStatus(appId, { status: newStatus, notes: actionNotes || 'Status updated by recruiter.' });
+      setActionNotes('');
+      setSelectedApp(null);
+      await loadData();
+    } catch (err) {
+      alert(err.message || 'Failed to update status.');
+    }
   };
 
   // Filter application pipeline
   const filteredApps = applications.filter((app) => {
-    const candidate = candidates.find(c => c.id === app.candidateId);
+    const candidateName = `Candidate #${app.candidateId}`; // Fallback mockup since backend doesn't return full name in apps
     const job = jobs.find(j => j.id === app.jobId);
     
-    const matchesSearch = candidate?.name.toLowerCase().includes(candidateSearch.toLowerCase()) || false;
+    const matchesSearch = candidateName.toLowerCase().includes(candidateSearch.toLowerCase());
     const matchesJob = selectedJobFilter === 'All' || app.jobId === selectedJobFilter;
     const matchesStatus = selectedStatusFilter === 'All' || app.status === selectedStatusFilter;
 
     return matchesSearch && matchesJob && matchesStatus;
-  }).sort((a, b) => b.aiMatchScore - a.aiMatchScore); // Sorted by AI Match score default
+  }).sort((a, b) => (b.aiMatchScore || 0) - (a.aiMatchScore || 0)); // Sorted by AI Match score default
+
+  if (loading) return (
+    <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '60vh', flexDirection: 'column', gap: '16px' }}>
+      <Loader size={40} color="hsl(var(--primary))" style={{ animation: 'spin 1s linear infinite' }} />
+      <p style={{ color: 'hsl(var(--text-muted))' }}>Loading Dashboard Data...</p>
+    </div>
+  );
 
   return (
     <div style={containerStyle}>
@@ -156,7 +193,7 @@ export default function RecruiterPortal() {
                 </tr>
               ) : (
                 filteredApps.map((app) => {
-                  const candidate = candidates.find(c => c.id === app.candidateId);
+                  const candidateName = `Candidate #${app.candidateId}`;
                   const job = jobs.find(j => j.id === app.jobId);
                   
                   return (
@@ -168,8 +205,8 @@ export default function RecruiterPortal() {
                     >
                       <td style={tdStyle}>
                         <div>
-                          <p style={{ fontWeight: '600', color: 'white' }}>{candidate?.name || 'Unknown'}</p>
-                          <p style={{ fontSize: '0.75rem', color: 'hsl(var(--text-muted))' }}>{candidate?.email}</p>
+                          <p style={{ fontWeight: '600', color: 'white' }}>{candidateName}</p>
+                          <p style={{ fontSize: '0.75rem', color: 'hsl(var(--text-muted))' }}>ID: {app.candidateId}</p>
                         </div>
                       </td>
                       <td style={tdStyle}>
@@ -178,7 +215,7 @@ export default function RecruiterPortal() {
                           <p style={{ fontSize: '0.75rem', color: 'hsl(var(--text-muted))' }}>{job?.department}</p>
                         </div>
                       </td>
-                      <td style={tdStyle}>{app.date}</td>
+                      <td style={tdStyle}>{new Date(app.appliedDate).toLocaleDateString()}</td>
                       <td style={tdStyle}>
                         <div style={aiIndicatorContainerStyle}>
                           <Sparkles size={12} color="hsl(var(--primary))" />
@@ -219,7 +256,7 @@ export default function RecruiterPortal() {
       {/* ============ PIPELINE DRAWER FOR REVIEW ============ */}
       {selectedApp && (
         (() => {
-          const candidate = candidates.find(c => c.id === selectedApp.candidateId);
+          const candidateName = `Candidate #${selectedApp.candidateId}`;
           const job = jobs.find(j => j.id === selectedApp.jobId);
           
           return (
@@ -228,17 +265,16 @@ export default function RecruiterPortal() {
                 <div style={drawerHeaderStyle}>
                   <div>
                     <span className="badge badge-accent">Applicant Profile Review</span>
-                    <h2 style={{ fontSize: '1.4rem', marginTop: '8px' }}>{candidate?.name}</h2>
+                    <h2 style={{ fontSize: '1.4rem', marginTop: '8px' }}>{candidateName}</h2>
                     <p style={{ fontSize: '0.85rem', color: 'hsl(var(--text-muted))' }}>Applying for: <strong>{job?.title}</strong></p>
                   </div>
                   <button onClick={() => setSelectedApp(null)} style={closeDrawerBtnStyle}>&times;</button>
                 </div>
 
                 <div style={{ overflowY: 'auto', flexGrow: 1, paddingRight: '4px', marginBottom: '20px' }}>
-                  {/* Contact row */}
+                  {/* Contact row (Backend profile sync needed for full details) */}
                   <div style={contactRowStyle}>
-                    <p><strong>Email:</strong> {candidate?.email}</p>
-                    <p><strong>Phone:</strong> {candidate?.phone}</p>
+                    <p><strong>Candidate ID:</strong> {selectedApp.candidateId}</p>
                   </div>
 
                   {/* AI Assistant Insight Box */}
@@ -251,7 +287,7 @@ export default function RecruiterPortal() {
                     <p style={aiReportDescStyle}>{selectedApp.aiFeedback}</p>
                     <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px', marginTop: '10px' }}>
                       <span style={{ fontSize: '0.75rem', color: 'hsl(var(--text-muted))', alignSelf: 'center' }}>Extracted Skills:</span>
-                      {selectedApp.aiKeywordsExtracted.map((key) => (
+                      {(selectedApp.aiKeywordsExtracted || []).map((key) => (
                         <span key={key} style={keywordBadgeStyle}>{key}</span>
                       ))}
                     </div>
@@ -260,23 +296,21 @@ export default function RecruiterPortal() {
                   <h4 style={sectionTitleStyle}>Candidate Qualifications</h4>
                   <div style={infoGridStyle}>
                     <div style={infoBoxStyle}>
-                      <span style={infoLabelStyle}>Experience Profile</span>
-                      <p style={infoValueStyle}>{candidate?.experience}</p>
-                    </div>
-                    <div style={infoBoxStyle}>
-                      <span style={infoLabelStyle}>Education</span>
-                      <p style={infoValueStyle}>{candidate?.education}</p>
-                    </div>
-                    <div style={infoBoxStyle}>
-                      <span style={infoLabelStyle}>Candidate Self-Reported Skills</span>
-                      <p style={infoValueStyle}>{candidate?.skills}</p>
-                    </div>
-                    <div style={infoBoxStyle}>
                       <span style={infoLabelStyle}>Uploaded Resume Attachment</span>
                       <div style={resumeLineStyle}>
                         <FileText size={14} color="hsl(var(--accent))" />
-                        <span style={{ fontSize: '0.8rem' }}>{candidate?.resumeFileName}</span>
+                        {selectedApp.resumeUrl ? (
+                          <a href={`http://localhost:5027${selectedApp.resumeUrl}`} target="_blank" rel="noopener noreferrer" style={{ fontSize: '0.8rem', color: 'hsl(var(--accent))', textDecoration: 'underline' }}>
+                            {selectedApp.resumeFileName || 'resume.pdf'}
+                          </a>
+                        ) : (
+                          <span style={{ fontSize: '0.8rem' }}>{selectedApp.resumeFileName || 'resume.pdf'}</span>
+                        )}
                       </div>
+                    </div>
+                    <div style={infoBoxStyle}>
+                      <span style={infoLabelStyle}>Applied On</span>
+                      <p style={infoValueStyle}>{new Date(selectedApp.appliedDate).toLocaleDateString()}</p>
                     </div>
                   </div>
 
@@ -315,12 +349,16 @@ export default function RecruiterPortal() {
                     
                     {selectedApp.status === 'Screening' && (
                       <button 
-                        onClick={() => {
-                          // Save notes, then redirect to Schedule Interviews
-                          updateApplicationStatus(selectedApp.id, 'Interviewing', actionNotes || 'Passed screening check.');
-                          setActionNotes('');
-                          setSelectedApp(null);
-                          navigate('/recruiter/interviews');
+                        onClick={async () => {
+                          try {
+                            await api.updateApplicationStatus(selectedApp.id, { status: 'Interviewing', notes: actionNotes || 'Passed screening check.' });
+                            setActionNotes('');
+                            setSelectedApp(null);
+                            await loadData();
+                            // Optional: navigate('/recruiter/interviews');
+                          } catch (err) {
+                            alert('Failed to update status.');
+                          }
                         }}
                         style={scheduleBtnStyle}
                       >

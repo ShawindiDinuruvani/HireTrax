@@ -2,9 +2,10 @@ import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useApp } from '../context/AppContext';
 import { Sparkles, Briefcase, FileText, ArrowLeft, ArrowRight } from 'lucide-react';
+import { api } from '../services/api';
 
 export default function PostJob() {
-  const { createJob } = useApp();
+  const { currentUser } = useApp();
   const navigate = useNavigate();
 
   // Form states
@@ -54,25 +55,32 @@ export default function PostJob() {
     }, 800);
   };
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
     if (!title || !desc || !reqs) {
       alert('Please enter all required fields.');
       return;
     }
 
-    createJob({
-      title,
-      department: dept,
-      location,
-      type: jobType,
-      salary,
-      description: desc,
-      requirements: reqs
-    });
+    try {
+      await api.createJob({
+        title,
+        department: dept,
+        location,
+        jobType: jobType,
+        salaryRange: salary,
+        description: desc,
+        requirements: reqs,
+        aiPreferredSkills: reqs.split(',').map((s) => s.trim()).filter((s) => s.length > 0).join(', '),
+        companyName: currentUser?.companyName || "Your Company",
+        postedByUserId: currentUser?.id
+      });
 
-    alert('New job posted successfully! The AI parser has updated candidate recommendation pipelines.');
-    navigate('/');
+      alert('New job posted successfully! The AI parser has updated candidate recommendation pipelines.');
+      navigate('/');
+    } catch (err) {
+      alert('Error creating job: ' + err.message);
+    }
   };
 
   return (

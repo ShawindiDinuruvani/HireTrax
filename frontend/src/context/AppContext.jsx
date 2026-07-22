@@ -1,4 +1,5 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
+import { api } from '../services/api';
 
 const AppContext = createContext();
 
@@ -442,46 +443,42 @@ export function AppProvider({ children }) {
   };
 
   // ── Auth actions ─────────────────────────────────────────────
-  const registerUser = ({ fullName, email, password, role }) => {
-    // Check for duplicate email
-    const exists = registeredUsers.find(
-      (u) => u.email.toLowerCase() === email.toLowerCase()
-    );
-    if (exists) {
-      return { success: false, message: 'An account with this email already exists.' };
+  const registerUser = async ({ fullName, email, password, role, companyId, companyName, companyIndustry }) => {
+    try {
+      // Map string role to RoleId integer
+      const roleMap = { 'candidate': 1, 'recruiter': 2, 'hiring_manager': 3, 'admin': 4, 'company_admin': 5 };
+      const roleId = roleMap[role] || 1;
+
+      const result = await api.register({ fullName, email, password, roleId, companyId: companyId || null, companyName, companyIndustry });
+      addLog('System', 'User Registered', `New ${role} account created: ${fullName} (${email})`);
+      return { success: true };
+    } catch (err) {
+      return { success: false, message: err.message || 'Registration failed' };
     }
-
-    const newUser = {
-      id: `user-${Date.now()}`,
-      fullName,
-      email,
-      password, // In a real system this would be hashed
-      role,
-      createdAt: new Date().toISOString(),
-    };
-
-    setRegisteredUsers((prev) => [...prev, newUser]);
-    addLog('System', 'User Registered', `New ${role} account created: ${fullName} (${email})`);
-    return { success: true, user: newUser };
   };
 
-  const loginUser = ({ email, password }) => {
-    const match = registeredUsers.find(
-      (u) =>
-        u.email.toLowerCase() === email.toLowerCase() &&
-        u.password === password
-    );
+  const loginUser = async ({ email, password }) => {
+    try {
+      const result = await api.login({ email, password });
+      
+      localStorage.setItem('hiretrax_jwt', result.token);
+      
+      // Map RoleId back to string role
+      const reverseRoleMap = { 1: 'candidate', 2: 'recruiter', 3: 'hiring_manager', 4: 'admin', 5: 'company_admin' };
+      const roleString = reverseRoleMap[result.roleId] || 'candidate';
 
-    if (!match) {
-      return { success: false, message: 'Incorrect email or password.' };
+      const user = { email, id: result.userId, role: roleString, fullName: email.split('@')[0] };
+      
+      setCurrentUser(user);
+      setCurrentRole(roleString);
+      setIsAuthenticated(true);
+      
+      localStorage.setItem('hiretrax_current_user', JSON.stringify(user));
+      addLog(user.fullName, 'Login', `Signed in as ${roleString}`);
+      return { success: true, user };
+    } catch (err) {
+      return { success: false, message: err.message || 'Login failed' };
     }
-
-    setCurrentUser(match);
-    setCurrentRole(match.role);
-    setIsAuthenticated(true);
-    localStorage.setItem('hiretrax_current_user', JSON.stringify(match));
-    addLog(match.fullName, 'Login', `Signed in as ${match.role}`);
-    return { success: true, user: match };
   };
 
   const logout = () => {
@@ -489,6 +486,7 @@ export function AppProvider({ children }) {
     setCurrentUser(null);
     localStorage.setItem('hiretrax_auth', 'false');
     localStorage.removeItem('hiretrax_current_user');
+    localStorage.removeItem('hiretrax_jwt');
   };
 
   return (

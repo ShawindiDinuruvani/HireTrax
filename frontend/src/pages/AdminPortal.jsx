@@ -1,13 +1,42 @@
 import React, { useState } from 'react';
 import { useApp } from '../context/AppContext';
+import { api } from '../services/api';
 import { 
   Settings, Users, Activity, Terminal, Shield, 
-  Trash, UserCheck, HardDrive, RefreshCw, BarChart2
+  Trash, UserCheck, HardDrive, RefreshCw, BarChart2, Loader
 } from 'lucide-react';
 
 export default function AdminPortal() {
-  const { logs, candidates, jobs, applications, evaluations } = useApp();
+  const { currentUser } = useApp();
   const [adminTab, setAdminTab] = useState('analytics'); // 'analytics', 'users', 'logs'
+
+  // ── Real API State ──
+  const [jobs, setJobs] = useState([]);
+  const [applications, setApplications] = useState([]);
+  const [logs, setLogs] = useState([]);
+  const [loading, setLoading] = useState(true);
+
+  React.useEffect(() => {
+    loadData();
+  }, []);
+
+  const loadData = async () => {
+    setLoading(true);
+    try {
+      const [jobsData, appsData, logsData] = await Promise.all([
+        api.getJobs(),
+        api.getAllApplications().catch(() => []),
+        api.getAuditLogs().catch(() => [])
+      ]);
+      setJobs(jobsData);
+      setApplications(appsData);
+      setLogs(logsData);
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   // User database simulation (merge candidates and staff list)
   const [usersList, setUsersList] = useState([
@@ -38,6 +67,13 @@ export default function AdminPortal() {
     Design: applications.filter(a => jobs.find(j => j.id === a.jobId)?.department === 'Design').length,
     Operations: applications.filter(a => jobs.find(j => j.id === a.jobId)?.department === 'Operations').length,
   };
+
+  if (loading) return (
+    <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '60vh', flexDirection: 'column', gap: '16px' }}>
+      <Loader size={40} color="hsl(var(--primary))" style={{ animation: 'spin 1s linear infinite' }} />
+      <p style={{ color: 'hsl(var(--text-muted))' }}>Loading Admin Console Data...</p>
+    </div>
+  );
 
   return (
     <div style={containerStyle}>
@@ -228,11 +264,17 @@ export default function AdminPortal() {
               {logs.map((log) => (
                 <div key={log.id} style={logLineStyle}>
                   <span style={logTimeStyle}>[{new Date(log.timestamp).toLocaleTimeString()}]</span>
-                  <span style={logUserStyle}> ({log.user})</span>
+                  <span style={logUserStyle}> (User {log.userId})</span>
                   <span style={{ color: 'white' }}> {log.action}</span>
                   <span style={logDetailStyle}> - {log.details}</span>
+                  <span style={{ fontSize: '0.75rem', marginLeft: '8px', opacity: 0.6 }}>IP: {log.ipAddress}</span>
                 </div>
               ))}
+              {logs.length === 0 && (
+                <div style={logLineStyle}>
+                  <span style={logDetailStyle}>No system logs detected.</span>
+                </div>
+              )}
             </div>
           </div>
 

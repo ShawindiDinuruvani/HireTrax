@@ -1,8 +1,9 @@
 import React from 'react';
-import { BrowserRouter, Routes, Route } from 'react-router-dom';
+import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { AppProvider, useApp } from './context/AppContext';
 import CursorAnimation from './components/CursorAnimation';
 import Layout from './components/Layout';
+import HomePage from './pages/HomePage';
 import LoginPage from './pages/LoginPage';
 import CandidatePortal from './pages/CandidatePortal';
 import RecruiterPortal from './pages/RecruiterPortal';
@@ -10,6 +11,7 @@ import PostJob from './pages/PostJob';
 import ScheduleInterview from './pages/ScheduleInterview';
 import HiringManagerDashboard from './pages/HiringManagerDashboard';
 import AdminPortal from './pages/AdminPortal';
+import CompanyAdminDashboard from './pages/CompanyAdminDashboard';
 import IntegrationDemo from './pages/IntegrationDemo';
 import './App.css';
 import SkillGapAnalysis from './pages/SkillGapAnalysis';
@@ -25,7 +27,7 @@ function BackgroundDecor() {
   );
 }
 
-/* ── Role-driven router ─────────────────────────────────────── */
+/* ── Role-driven router (nested inside /dashboard) ──────────── */
 function RoleRouter() {
   const { currentRole } = useApp();
 
@@ -75,21 +77,57 @@ function RoleRouter() {
     );
   }
 
+  if (currentRole === 'company_admin') {
+    return (
+      <Routes>
+        <Route path="/" element={<CompanyAdminDashboard />} />
+        <Route path="/integration-demo" element={<IntegrationDemo />} />
+        <Route path="*" element={<CompanyAdminDashboard />} />
+      </Routes>
+    );
+  }
+
   return null;
 }
 
-/* ── Auth gate — shows login or dashboard ───────────────────── */
-function AuthGate() {
+/* ── Top-level router ────────────────────────────────────────── */
+function AppRoutes() {
   const { isAuthenticated } = useApp();
 
-  if (!isAuthenticated) {
-    return <LoginPage />;
-  }
-
   return (
-    <Layout>
-      <RoleRouter />
-    </Layout>
+    <Routes>
+      {/* Public homepage */}
+      <Route
+        path="/"
+        element={isAuthenticated ? <Navigate to="/dashboard" replace /> : <HomePage />}
+      />
+
+      {/* Login / Register */}
+      <Route
+        path="/login"
+        element={isAuthenticated ? <Navigate to="/dashboard" replace /> : <LoginPage />}
+      />
+
+      {/* Protected dashboard */}
+      <Route
+        path="/dashboard/*"
+        element={
+          isAuthenticated ? (
+            <Layout>
+              <RoleRouter />
+            </Layout>
+          ) : (
+            <Navigate to="/login" replace />
+          )
+        }
+      />
+
+      {/* Catch-all */}
+      <Route
+        path="*"
+        element={isAuthenticated ? <Navigate to="/dashboard" replace /> : <Navigate to="/" replace />}
+      />
+    </Routes>
   );
 }
 
@@ -100,7 +138,7 @@ export default function App() {
       <AppProvider>
         <CursorAnimation />
         <BackgroundDecor />
-        <AuthGate />
+        <AppRoutes />
       </AppProvider>
     </BrowserRouter>
   );

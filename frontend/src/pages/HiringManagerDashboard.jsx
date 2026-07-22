@@ -1,15 +1,13 @@
 import React, { useState } from 'react';
 import { useApp } from '../context/AppContext';
+import { api } from '../services/api';
 import { 
   CheckSquare, Award, Star, User, Calendar, 
-  Sparkles, FileText, Send, Check, X, ShieldAlert 
+  Sparkles, FileText, Send, Check, X, ShieldAlert, Loader 
 } from 'lucide-react';
 
 export default function HiringManagerDashboard() {
-  const { 
-    applications, candidates, jobs, evaluations, 
-    schedules, submitEvaluation, updateApplicationStatus 
-  } = useApp();
+  const { currentUser } = useApp();
 
   // Selected candidate for active scorecard submission/review
   const [selectedAppId, setSelectedAppId] = useState('');
@@ -22,20 +20,59 @@ export default function HiringManagerDashboard() {
   const [recommendation, setRecommendation] = useState('Hire');
   const [notes, setNotes] = useState('');
 
+  // ── Real API State ──
+  const [jobs, setJobs] = useState([]);
+  const [applications, setApplications] = useState([]);
+  const [evaluations, setEvaluations] = useState([]);
+  const [loading, setLoading] = useState(true);
+
+  React.useEffect(() => {
+    loadData();
+  }, []);
+
+  const loadData = async () => {
+    setLoading(true);
+    try {
+      const [jobsData, appsData] = await Promise.all([
+        api.getJobs(),
+        api.getAllApplications().catch(() => [])
+      ]);
+      setJobs(jobsData);
+      setApplications(appsData);
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+
+
   // Filter candidates in the "Interviewing" or "Score Card" phase
   const shortlistedApps = applications.filter(
     (app) => app.status === 'Interviewing' || app.status === 'Score Card' || app.status === 'Accepted'
   );
 
   const activeApp = applications.find(a => a.id === selectedAppId) || shortlistedApps[0];
-  const candidate = candidates.find(c => c.id === activeApp?.candidateId);
-  const job = jobs.find(j => j.id === activeApp?.jobId);
-  const existingEval = evaluations.find(e => e.applicationId === activeApp?.id);
-  const matchingSchedule = schedules.find(s => s.applicationId === activeApp?.id);
+  const candidateName = activeApp ? `Candidate #${activeApp.candidateId}` : '';
+  const job = activeApp ? jobs.find(j => j.id === activeApp.jobId) : null;
+  const existingEval = activeApp ? evaluations.find(e => e.applicationId === activeApp.id) : null;
 
-  const handleScoreSubmit = (e) => {
+  React.useEffect(() => {
+    if (activeApp?.id && (activeApp.status === 'Score Card' || activeApp.status === 'Accepted')) {
+      api.getEvaluationsForApplication(activeApp.id)
+        .then(data => setEvaluations(prev => {
+          const others = prev.filter(e => e.applicationId !== activeApp.id);
+          return [...others, ...(Array.isArray(data) ? data : [])];
+        }))
+        .catch(console.error);
+    }
+  }, [activeApp?.id, activeApp?.status]);
+
+  const handleScoreSubmit = async (e) => {
     e.preventDefault();
-    if (!selectedAppId) {
+    const idToSubmit = selectedAppId || activeApp?.id;
+    if (!idToSubmit) {
       alert('Please select an applicant to score.');
       return;
     }
@@ -44,27 +81,57 @@ export default function HiringManagerDashboard() {
       return;
     }
 
-    submitEvaluation({
-      applicationId: selectedAppId,
-      interviewerName,
-      skillsScore,
-      cultureScore,
-      communicationScore,
-      recommendation,
-      notes
-    });
+    try {
+      await api.submitEvaluation({
+        applicationId: idToSubmit,
+        interviewerName,
+        skillsScore: parseFloat(skillsScore),
+        cultureScore: parseFloat(cultureScore),
+        communicationScore: parseFloat(communicationScore),
+        recommendation,
+        notes
+      });
+      
+      try {
+        await api.sendEmail(`candidate${idToSubmit}@hiretrax.local`, 'Assessment Scorecard Submitted', `Your application has moved to the Score Card stage. Recommendation: ${recommendation}`);
+      } catch (err) {
+        console.warn('Failed to send email notification:', err);
+      }
 
-    alert('Candidate scorecard submitted successfully! Status has been updated.');
-    // Keep selection but it will now show the submitted evaluation view
-    setNotes('');
-  };
-
-  const handleFinalDecision = (status) => {
-    if (window.confirm(`Are you sure you want to move this candidate to "${status}"?`)) {
-      updateApplicationStatus(activeApp.id, status, `Hiring Manager Final Decision: ${status}.`);
-      alert(`Candidate has been moved to ${status}.`);
+      alert('Candidate scorecard submitted successfully! Status has been updated.');
+      setNotes('');
+      await loadData();
+    } catch (err) {
+      alert('Failed to submit score: ' + err.message);
     }
   };
+
+  const handleFinalDecision = async (status) => {
+    if (window.confirm(`Are you sure you want to move this candidate to "${status}"?`)) {
+      try {
+        const idToSubmit = selectedAppId || activeApp?.id;
+        await api.updateApplicationStatus(idToSubmit, { status: status, notes: `Hiring Manager Final Decision: ${status}.` });
+        
+        try {
+          await api.sendEmail(`candidate${idToSubmit}@hiretrax.local`, 'Application Status Update', `Your application status has been updated to: ${status}`);
+        } catch (err) {
+          console.warn('Failed to send email notification:', err);
+        }
+
+        alert(`Candidate has been moved to ${status}.`);
+        await loadData();
+      } catch (err) {
+        alert('Failed to update status: ' + err.message);
+      }
+    }
+  };
+
+  if (loading) return (
+    <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '60vh', flexDirection: 'column', gap: '16px' }}>
+      <Loader size={40} color="hsl(var(--primary))" style={{ animation: 'spin 1s linear infinite' }} />
+      <p style={{ color: 'hsl(var(--text-muted))' }}>Loading Dashboard Data...</p>
+    </div>
+  );
 
   return (
     <div style={containerStyle}>
@@ -86,7 +153,7 @@ export default function HiringManagerDashboard() {
             <h3 style={{ marginBottom: '16px', fontSize: '1.1rem' }}>Shortlisted Applicants</h3>
             <div style={shortlistContainerStyle}>
               {shortlistedApps.map((app) => {
-                const cand = candidates.find(c => c.id === app.candidateId);
+                const candName = `Candidate #${app.candidateId}`;
                 const j = jobs.find(jobItem => jobItem.id === app.jobId);
                 const hasScorecard = evaluations.some(e => e.applicationId === app.id);
                 const isSelected = activeApp?.id === app.id;
@@ -99,8 +166,8 @@ export default function HiringManagerDashboard() {
                     className="glass-card-interactive"
                   >
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-                      <h4 style={{ fontSize: '0.95rem', fontWeight: '700' }}>{cand?.name}</h4>
-                      {hasScorecard ? (
+                      <h4 style={{ fontSize: '0.95rem', fontWeight: '700' }}>{candName}</h4>
+                      {hasScorecard || app.status === 'Score Card' || app.status === 'Accepted' ? (
                         <span className="badge badge-success" style={{ fontSize: '0.6rem' }}>Scored</span>
                       ) : (
                         <span className="badge badge-warning" style={{ fontSize: '0.6rem' }}>Pending</span>
@@ -129,7 +196,7 @@ export default function HiringManagerDashboard() {
               <div className="glass-card" style={detailsCardStyle}>
                 <div style={detailsHeaderStyle}>
                   <div>
-                    <h3 style={{ fontSize: '1.3rem' }}>{candidate?.name}</h3>
+                    <h3 style={{ fontSize: '1.3rem' }}>{candidateName}</h3>
                     <p style={{ fontSize: '0.85rem', color: 'hsl(var(--text-secondary))' }}>
                       Target Role: <strong>{job?.title}</strong> ({job?.department})
                     </p>
@@ -143,20 +210,24 @@ export default function HiringManagerDashboard() {
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px', margin: '20px 0' }}>
                   <div>
                     <span style={infoLabelStyle}>Technical Experience</span>
-                    <p style={infoValueStyle}>{candidate?.experience}</p>
+                    <p style={infoValueStyle}>Check CV / Resume</p>
                   </div>
                   <div>
-                    <span style={infoLabelStyle}>Interview Date</span>
+                    <span style={infoLabelStyle}>Applied On</span>
                     <p style={infoValueStyle}>
-                      {matchingSchedule ? new Date(matchingSchedule.dateTime).toLocaleString() : 'Not Scheduled'}
+                      {new Date(activeApp.appliedDate).toLocaleDateString()}
                     </p>
                   </div>
                 </div>
 
                 <div style={resumeAttachedStyle}>
                   <FileText size={16} color="hsl(var(--accent))" />
-                  <span style={{ fontSize: '0.85rem', flexGrow: 1 }}>{candidate?.resumeFileName}</span>
-                  <a href={`#`} onClick={(e) => { e.preventDefault(); alert('Opening CV file viewer simulator...'); }} style={viewLinkStyle}>View Resume</a>
+                  <span style={{ fontSize: '0.85rem', flexGrow: 1 }}>{activeApp.resumeFileName || 'resume.pdf'}</span>
+                  {activeApp.resumeUrl ? (
+                    <a href={`http://localhost:5027${activeApp.resumeUrl}`} target="_blank" rel="noopener noreferrer" style={viewLinkStyle}>View Resume</a>
+                  ) : (
+                    <a href={`#`} onClick={(e) => { e.preventDefault(); alert('Resume file not uploaded or synced.'); }} style={viewLinkStyle}>No Resume</a>
+                  )}
                 </div>
               </div>
 
@@ -201,8 +272,8 @@ export default function HiringManagerDashboard() {
 
                   <div style={notesBlockStyle}>
                     <span style={infoLabelStyle}>Panel Recommendation</span>
-                    <p style={{ fontWeight: '700', fontSize: '1rem', color: existingEval.recommendation.includes('No') ? 'hsl(var(--danger))' : 'hsl(var(--success))' }}>
-                      {existingEval.recommendation}
+                    <p style={{ fontWeight: '700', fontSize: '1rem', color: existingEval.recommendation?.includes('No') ? 'hsl(var(--danger))' : 'hsl(var(--success))' }}>
+                      {existingEval.recommendation || 'N/A'}
                     </p>
                     <span style={{ ...infoLabelStyle, marginTop: '12px' }}>Interview Assessment Notes</span>
                     <p style={notesTextDetailStyle}>{existingEval.notes}</p>
@@ -222,6 +293,17 @@ export default function HiringManagerDashboard() {
                           <Check size={16} /> Extend Official Offer
                         </button>
                       </div>
+                    </div>
+                  )}
+
+                  {activeApp.status === 'Accepted' && (
+                    <div style={{ marginTop: '20px', padding: '16px', background: 'hsl(var(--success) / 0.1)', border: '1px solid hsl(var(--success) / 0.3)', borderRadius: 'var(--radius-sm)' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: 'hsl(var(--success))', fontWeight: '700' }}>
+                        <Check size={18} /> Official Offer Extended
+                      </div>
+                      <p style={{ fontSize: '0.85rem', color: 'hsl(var(--text-secondary))', marginTop: '4px' }}>
+                        The candidate has been selected for the position. An email notification has been sent to the applicant.
+                      </p>
                     </div>
                   )}
                 </div>
